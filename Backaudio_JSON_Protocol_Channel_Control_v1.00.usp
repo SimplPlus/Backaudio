@@ -1,0 +1,832 @@
+/*******************************************************************************************
+  SIMPL+ Module Information
+  (Fill in comments below)
+*******************************************************************************************/
+/*
+Dealer Name:apcube.com
+System Name:
+System Number:
+Programmer:iConsole
+Comments:
+*/
+
+/*******************************************************************************************
+  Compiler Directives
+  (Uncomment and declare compiler directives as needed)
+*******************************************************************************************/
+// #ENABLE_DYNAMIC
+ #SYMBOL_NAME "Backaudio_JSON_Protocol_Channel_Control_v1.00"
+// #HINT ""
+ #DEFINE_CONSTANT SendID$ "BACSLH10618705008999"
+// #CATEGORY "" 
+#CATEGORY "4" // Device Interface
+// #PRINT_TO_TRACE
+// #DIGITAL_EXPAND 
+// #ANALOG_SERIAL_EXPAND 
+// #OUTPUT_SHIFT 
+// #HELP_PDF_FILE ""
+#DEFAULT_VOLATILE
+#ENABLE_STACK_CHECKING
+#ENABLE_TRACE
+// #ENCODING_ASCII
+// #ENCODING_UTF16
+// #ENCODING_INHERIT_FROM_PARENT
+// #ENCODING_INHERIT_FROM_PROGRAM
+#HELP_BEGIN
+TCP, 20090
+#HELP_END
+
+/*******************************************************************************************
+  Include Libraries
+  (Uncomment and include additional libraries as needed)
+*******************************************************************************************/
+// #CRESTRON_LIBRARY ""
+// #USER_LIBRARY ""
+
+/*******************************************************************************************
+  DIGITAL, ANALOG and SERIAL INPUTS and OUTPUTS
+  (Uncomment and declare inputs and outputs as needed)
+*******************************************************************************************/
+ DIGITAL_INPUT Power_On, Power_Off, _SKIP_, Resume, Pause, Prev, Next, _SKIP_, PlayMode_normal, PlayMode_circle, PlayMode_shuffle, PlayMode_single, _SKIP_,
+	Source_cloudMusic, Source_cloudRadio, Source_cloudStory, Source_cloudNews, Source_localMusic, Source_FM, Source_AUX, _SKIP_,
+	EQ_Flat, EQ_Classical, EQ_Club, EQ_Live, EQ_Party, EQ_Pop, EQ_Rock, EQ_Soft, _SKIP_, Vol_Up, Vol_Dn, Mute;
+ ANALOG_INPUT Volume;
+ STRING_INPUT _SKIP_, roomID$[50], RX$[1024]; 
+// BUFFER_INPUT _SKIP_, RX$[1024];
+
+ DIGITAL_OUTPUT Power_On_Fb, Power_Off_Fb, _SKIP_, Playing_Fb, Pause_Fb, _SKIP_, _SKIP_, _SKIP_, PlayMode_normal_Fb, PlayMode_circle_Fb, PlayMode_shuffle_Fb, PlayMode_single_Fb, _SKIP_,
+	Source_cloudMusic_Fb, Source_cloudRadio_Fb, Source_cloudStory_Fb, Source_cloudNews_Fb, Source_localMusic_Fb, Source_FM_Fb, Source_AUX_Fb, _SKIP_,
+	EQ_Flat_Fb, EQ_Classical_Fb, EQ_Club_Fb, EQ_Live_Fb, EQ_Party_Fb, EQ_Pop_Fb, EQ_Rock_Fb, EQ_Soft_Fb, _SKIP_, _SKIP_, _SKIP_, Mute_Fb;
+ ANALOG_OUTPUT Volume_Fb;
+ STRING_OUTPUT _SKIP_, _SKIP_, TX$;
+
+/*******************************************************************************************
+  SOCKETS
+  (Uncomment and define socket definitions as needed)
+*******************************************************************************************/
+// TCP_CLIENT
+// TCP_SERVER
+// UDP_SOCKET
+
+/*******************************************************************************************
+  Parameters
+  (Uncomment and declare parameters as needed)
+*******************************************************************************************/
+// INTEGER_PARAMETER _SKIP_, _SKIP_;
+// SIGNED_INTEGER_PARAMETER
+// LONG_INTEGER_PARAMETER
+// SIGNED_LONG_INTEGER_PARAMETER
+// STRING_PARAMETER Device_ID$[25];
+
+/*******************************************************************************************
+  Parameter Properties
+  (Uncomment and declare parameter properties as needed)
+*******************************************************************************************/
+/*
+#BEGIN_PARAMETER_PROPERTIES Device_ID$
+    propValidUnits = unitString;// unitString or unitDecimal|unitHex|unitPercent|unitCharacter|unitTime|unitTicks;
+    propDefaultUnit = unitString;// unitString, unitDecimal, unitHex, unitPercent, unitCharacter, unitTime or unitTicks;
+   // propBounds = lower_bound , upper_bound;
+   propDefaultValue = "BA750000c51c6793ef04";
+   // propList = // { "value" , "label" } , { "value" , "label" } , ... ;
+    propShortDescription = "backaudio device Channel recvID";
+   // #BEGIN_PROP_FULL_DESCRIPTION  line_1...  line_2...  line_n  #END_PROP_FULL_DESCRIPTION
+   // #BEGIN_PROP_NOTES line_1...  line_2...  line_n  #END_PROP_NOTES
+#END_PARAMETER_PROPERTIES
+ */
+/*******************************************************************************************
+  Structure Definitions
+  (Uncomment and define structure definitions as needed)
+  Note:  Be sure to initialize all declared STRING variables as needed
+         For example, in Function Main: struct.myString = "";
+*******************************************************************************************/
+/*
+STRUCTURE MyStruct1
+{
+};
+
+MyStruct1 struct;
+*/
+
+/*******************************************************************************************
+  Global Variables
+  (Uncomment and declare global variables as needed)
+  Note:  Be sure to initialize all declared STRING variables as needed
+         For example, in Function Main: myString = "";
+*******************************************************************************************/
+ INTEGER iVol;
+// LONG_INTEGER
+// SIGNED_INTEGER
+// SIGNED_LONG_INTEGER
+ STRING arg$[1024], CMD$[50];
+
+/*******************************************************************************************
+  Functions
+  (Add any additional functions here)
+  Note:  Functions must be physically placed before the location in
+         the code that calls them.
+*******************************************************************************************/
+String_Function MakeJSON()
+{
+	String JSON$[1024];
+	MakeString(JSON$, 
+		"{\x22arg\x22:{%s},\x22cmd\x22:\x22%s\x22,\x22direction\x22:\x22request\x22,\x22recvId\x22:\x22%s\x22,\x22sendId\x22:\x22%s\x22}",
+		arg$, CMD$, roomID$, SendID$);
+
+	Return (JSON$);
+}
+Function MKString()
+{
+	String Temp$[1024];
+	INTEGER iLen;
+
+	Temp$ = MakeJSON();
+
+	iLen = len(Temp$);
+
+	if( iLen > 255){
+		MakeString(TX$, "%s%s\x00\x00%s", chr(high(iLen)), chr(low(iLen)), Temp$);
+	}ELSE{
+		MakeString(TX$, "%s\x00\x00\x00%s", chr(iLen), Temp$);
+	}
+}
+Function CHKStat()
+{
+	arg$ = "";
+	CMD$ = "GetVolume";
+	MKString();
+
+	delay(50);
+	CMD$ = "GetMute";
+	MKString();
+
+	delay(50);
+	CMD$ = "GetPlayStat";
+	MKString();
+
+	delay(50);
+	CMD$ = "GetEq";
+	MKString();
+
+	delay(50);
+	CMD$ = "GetPlayMode";
+	MKString();
+}
+/*
+Integer_Function MyIntFunction1()
+{
+    // TODO:  Add local variable declarations here
+
+    // TODO:  Add code here
+
+    Return (0);
+}
+*/
+
+/*******************************************************************************************
+  Event Handlers
+  (Uncomment and declare additional event handlers as needed)
+*******************************************************************************************/
+PUSH Power_On
+{
+	arg$ = "\x22devStat\x22: \x22open\x22";
+	CMD$ = "SetDevStat";
+
+	MKString();
+}
+PUSH Power_Off
+{
+	arg$ = "\x22devStat\x22: \x22close\x22";
+	CMD$ = "SetDevStat";
+
+	MKString();
+}
+
+RELEASE Power_On, Power_Off
+{
+	arg$ = "";
+	CMD$ = "GetDevStat";
+
+	MKString();
+}
+//************************************************************** Volume
+
+PUSH Vol_Up
+{
+	INTEGER i;
+
+	CMD$ = "SetVolume";
+    
+	for(i = iVol to 31){
+	
+		if(Vol_Up = 1 && iVol < 31){
+			iVol = i;
+			MakeString(arg$, "\x22volume\x22: %d", iVol);
+	
+			MKString();
+			delay(30);
+		}ELSE{
+			Break;
+		}
+	}
+	
+}
+PUSH Vol_Dn
+{
+	INTEGER i;
+
+	CMD$ = "SetVolume";
+    
+	for(i = iVol to 0 Step -1){
+	
+		if(Vol_Dn = 1 && iVol > 0){
+			iVol = i;
+			MakeString(arg$, "\x22volume\x22: %d", iVol);
+	
+			MKString();
+			delay(30);
+		}ELSE{
+			Break;
+		}
+	}
+	
+}
+PUSH Mute
+{
+	INTEGER i;
+
+	CMD$ = "SetMute";
+
+	if(Mute_Fb = 1){
+		arg$ = "\x22muteStat\x22: \x22normal\x22";
+//		Mute_Fb = 0;
+	}Else{
+    	arg$ = "\x22muteStat\x22: \x22mute\x22";
+//		Mute_Fb = 1;
+	}
+	MKString();
+	
+}
+RELEASE Vol_Up, Vol_Dn, Mute
+{
+	arg$ = "";
+	CMD$ = "GetVolume";
+
+	MKString();
+
+	delay(50);
+
+	CMD$ = "GetMute";
+
+	MKString();
+}
+CHANGE Volume
+{
+	CMD$ = "SetVolume";
+	iVol = Volume/2114;
+	MakeString(arg$, "\x22volume\x22: %d", iVol);
+
+	MKString();
+}
+//******************************************************************* PLAY CMD
+PUSH Pause
+{
+	arg$ = "\x22playCmd\x22: \x22pause\x22";
+	CMD$ = "PlayCmd";
+
+	MKString();
+}
+PUSH Resume
+{
+	arg$ = "\x22playCmd\x22: \x22resume\x22";
+	CMD$ = "PlayCmd";
+
+	MKString();
+}
+PUSH Prev
+{
+	arg$ = "\x22playCmd\x22: \x22prev\x22";
+	CMD$ = "PlayCmd";
+
+	MKString();
+}
+PUSH Next
+{
+	arg$ = "\x22playCmd\x22: \x22next\x22";
+	CMD$ = "PlayCmd";
+
+	MKString();
+}
+RELEASE Pause, Resume, Prev, Next
+{
+	arg$ = "";
+	CMD$ = "GetPlayStat";
+
+	MKString();
+}
+//********************************************************************* PlayMode
+PUSH PlayMode_normal
+{
+	arg$ = "\x22playMode\x22:\x22normal\x22";
+	CMD$ = "SetPlayMode";
+
+	MKString();
+}
+PUSH PlayMode_circle
+{
+	arg$ = "\x22playMode\x22:\x22circle\x22";
+	CMD$ = "SetPlayMode";
+
+	MKString();
+}
+PUSH PlayMode_shuffle
+{
+	arg$ = "\x22playMode\x22:\x22shuffle\x22";
+	CMD$ = "SetPlayMode";
+
+	MKString();
+}
+PUSH PlayMode_single
+{
+	arg$ = "\x22playMode\x22:\x22single\x22";
+	CMD$ = "SetPlayMode";
+
+	MKString();
+}
+
+RELEASE PlayMode_normal, PlayMode_circle, PlayMode_shuffle, PlayMode_single
+{
+	arg$ = "";
+	CMD$ = "GetPlayMode";
+
+	MKString();
+}
+//********************************************************************* SOURCE
+PUSH Source_cloudMusic
+{
+//	arg$ = "\x22media\x22: {\x22albumId\x22: \x22665\x22,\x22albumMid\x22: \x22002PjDkE14OUkV\x22,\x22albumName\x22: \x22I'm OK\x22,\x22duration\x22: 306,\x22singer\x22: [{\x22id\x22: \x22101\x22,\x22mid\x22: \x22002cK0F12szD9T\x22,\x22name\x22: \x22ÌÕ†´\x22}],\x22songId\x22: \x224966543\x22,\x22songMid\x22: \x22003uKKf71WF3v1\x22,\x22songName\x22: \x22ÕÒ×Ô¼º\x22}";
+	arg$ = "\x22media\x22: {\x22albumMid\x22: \x22002PjDkE14OUkV\x22,\x22songId\x22: \x224966543\x22,\x22songMid\x22: \x22003uKKf71WF3v1\x22}";
+	CMD$ = "PlayCloudMusic";
+
+	MKString();
+
+}
+PUSH Source_cloudRadio
+{
+	arg$ = "\x22radioId\x22: \x22270\x22";
+	CMD$ = "PlayCloudRadio";
+
+	MKString();
+
+}
+
+PUSH Source_cloudStory
+{
+	arg$ = "\x22media\x22: {\x22mid\x22: \x22aHR0cDovL2ZkZnMudG91Y2h1cy5jb20vZ3JvdXAxL00wNS8xNS82RC9PaFFHalZlV3k1bUFHZzl6QUJvTFFqQXdHQWszMTkubTRh\x22}";
+	CMD$ = "PlayCloudStory";
+
+	MKString();
+
+}
+PUSH Source_cloudNews
+{
+	arg$ = "\x22media\x22:{\x22mid\x22:\x22aHR0cDovL2lwcy5pZmVuZy5jb20vdmlkZW8xOS5pZmVuZy5jb20vdmlkZW8wOS8yMDE2LzA3LzI4LzQxNjc1ODQtMTAyLTAwOS0wOTUwLm1wNA\x3d\x3d\x22}";
+	CMD$ = "PlayCloudNews";
+
+	MKString();
+
+}
+PUSH Source_localMusic
+{
+//	arg$ = "\x22media\x22:{\x22albumId\x22:\x22\x22,\x22albumMid\x22:\x22\x22,\x22mediaSrc\x22:\x22localMusic\x22,\x22singer\x22:[{\x22id\x22:\x22\x22,\x22mid\x22:\x22\x22}],\x22songId\x22:\x22\x22,\x22songMid\x22:\x22/media/U-PAN/1.mp3\x22}";
+//	arg$ = "\x22media\x22:{\x22albumId\x22:\x22\x22,\x22albumMid\x22:\x22\x22,\x22albumName\x22:\x22\x22,\x22mediaSrc\x22:\x22localMusic\x22,\x22singer\x22:[{\x22id\x22:\x22\x22,\x22mid\x22:\x22\x22,\x22name\x22:\x22\x22}],\x22songId\x22:\x22\x22,\x22songMid\x22:\x22/media/U-PAN/1.mp3\x22,\x22songName\x22:\x221.mp3\x22}";
+	arg$ = "\x22media\x22: {\x22mediaSrc\x22: \x22localMusic\x22,\x22songMid\x22: \x22/media/U-PAN/1.mp3\x22,\x22songName\x22: \x221.mp3\x22}";
+	CMD$ = "PlayLocalMusic";
+
+	MKString();
+
+}
+PUSH Source_FM
+{
+	arg$ = "\x22fmId\x22: \x220\x22";
+	CMD$ = "SwitchToFm";
+
+	MKString();
+
+	delay(50);
+
+	arg$ = "\x22fmId\x22: \x220\x22";
+	CMD$ = "GetLocalFmFreq";
+
+	MKString();
+}
+PUSH Source_AUX
+{
+	arg$ = "\x22auxId\x22: \x220\x22";
+	CMD$ = "SwitchToAux";
+
+	MKString();
+
+}
+//********************************************************************* EQ
+PUSH EQ_Flat
+{
+	arg$ = "\x22eq\x22:\x22Flat\x22";
+	CMD$ = "SetEq";
+
+	MKString();
+}
+PUSH EQ_Classical
+{
+	arg$ = "\x22eq\x22:\x22Classical\x22";
+	CMD$ = "SetEq";
+
+	MKString();
+}
+PUSH EQ_Club
+{
+	arg$ = "\x22eq\x22:\x22Club\x22";
+	CMD$ = "SetEq";
+
+	MKString();
+}
+PUSH EQ_Live
+{
+	arg$ = "\x22eq\x22:\x22Live\x22";
+	CMD$ = "SetEq";
+
+	MKString();
+}
+PUSH EQ_Party
+{
+	arg$ = "\x22eq\x22:\x22Party\x22";
+	CMD$ = "SetEq";
+
+	MKString();
+}
+PUSH EQ_Pop
+{
+	arg$ = "\x22eq\x22:\x22Pop\x22";
+	CMD$ = "SetEq";
+
+	MKString();
+}
+PUSH EQ_Rock
+{
+	arg$ = "\x22eq\x22:\x22Rock\x22";
+	CMD$ = "SetEq";
+
+	MKString();
+}
+PUSH EQ_Soft
+{
+	arg$ = "\x22eq\x22:\x22Soft\x22";
+	CMD$ = "SetEq";
+
+	MKString();
+}
+
+RELEASE EQ_Flat, EQ_Classical, EQ_Club, EQ_Live, EQ_Party, EQ_Pop, EQ_Rock, EQ_Soft
+{
+	arg$ = "";
+	CMD$ = "GetEq";
+
+	MKString();
+}
+/*
+RELEASE Source_cloudMusic, Source_storyTelling, Source_newsCenter, Source_localMusic, Source_FM, Source_AUX
+{
+	arg$ = "";
+	CMD$ = "GetAudioSource";
+
+	MKString();
+}
+*/
+
+/*************************************** Feedback */
+CHANGE RX$
+{
+	String rCMD$[20], rStat$[20];
+	INTEGER iCMD[2];
+
+	if(find("arg", RX$) > 1 && find("response", RX$) > 0 && find("cmd", RX$) > 0 && find(roomID$,RX$) > 0){
+
+		iCMD[1] = find("\x22", RX$, find("\x22cmd\x22:", RX$) + 6);
+		iCMD[2] = find("\x22", RX$, iCMD[1] + 1);
+		rCMD$ = mid(RX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+
+		Trace("get rCMD$: %s", rCMD$); 
+
+		if(rCMD$ = "GetMute" || rCMD$ = "NotifyMute"){ iCMD[0] = 1; }
+		if(rCMD$ = "GetVolume" || rCMD$ = "SetVolume" || rCMD$ = "NotifyVolume"){ iCMD[0] = 2; }
+		if(rCMD$ = "GetDevStat" || rCMD$ = "NotifyDevSta"){ iCMD[0] = 3; }
+		if(rCMD$ = "GetPlayStat" || rCMD$ = "NotifyPlayStat"){ iCMD[0] = 4; }
+		if(rCMD$ = "GetEq" || rCMD$ = "NotifyEq"){ iCMD[0] = 5; }
+		if(rCMD$ = "GetPlayMode" || rCMD$ = "NotifyPlayMode"){ iCMD[0] = 6; }
+		
+
+		Switch(iCMD[0]){
+			Case(1):{//Mute Status
+
+				iCMD[1] = find("\x22", RX$, find("\x22muteStat\x22:", RX$) + 11);
+				iCMD[2] = find("\x22", RX$, iCMD[1] + 1);
+				rStat$ = mid(RX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+				
+				if(rStat$ = "normal"){
+					Mute_Fb = 0;
+				}else{
+					Mute_Fb = 1;
+				}
+                Trace("Set or Get Mute status");
+			}
+			Case(2):{//Volume Status
+
+				iCMD[1] = find("\x22volume\x22:", RX$) + 9;
+				iCMD[2] = find("\x7D", RX$, iCMD[1] + 1);
+				rStat$ = mid(RX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+				iVol = atoi(rStat$);
+				Volume_Fb = iVol * 2114;
+                Trace("Get Volume (%s)", rStat$);
+			}
+			Case(3):{//Power Status
+
+				iCMD[1] = find("\x22", RX$, find("\x22devStat\x22:", RX$) + 10);
+				iCMD[2] = find("\x22", RX$, iCMD[1] + 1);
+				rStat$ = mid(RX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+				
+				if(rStat$ = "open"){
+					Power_On_Fb = 1;
+					Power_Off_Fb = 0;
+
+					CHKStat();
+				}else{
+					Power_On_Fb = 0;
+					Power_Off_Fb = 1;
+				}
+                Trace("Get Dev status");
+			}
+			Case(4):{//Play Status
+
+				iCMD[1] = find("\x22", RX$, find("\x22playStat\x22:", RX$) + 10);
+				iCMD[2] = find("\x22", RX$, iCMD[1] + 1);
+				rStat$ = mid(RX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+				
+				if(rStat$ = "pause"){
+					Pause_Fb = 1;
+					Playing_Fb = 0;
+				}
+				if(rStat$ = "playing"){
+					Pause_Fb = 0;
+					Playing_Fb = 1;
+				}
+                Trace("Get Play status");
+			}
+			Case(5):{//EQ Status
+
+				iCMD[1] = find("\x22", RX$, find("\x22eq\x22:", RX$) + 5);
+				iCMD[2] = find("\x22", RX$, iCMD[1] + 1);
+				rStat$ = mid(RX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+				
+				if(rStat$ = "Flat"){
+					EQ_Flat_Fb = 1;
+					EQ_Classical_Fb = 0;
+					EQ_Club_Fb = 0;
+					EQ_Live_Fb = 0;
+					EQ_Party_Fb = 0;
+					EQ_Pop_Fb = 0;
+					EQ_Rock_Fb = 0;
+					EQ_Soft_Fb = 0;
+				}
+				if(rStat$ = "Classical"){
+					EQ_Flat_Fb = 0;
+					EQ_Classical_Fb = 1;
+					EQ_Club_Fb = 0;
+					EQ_Live_Fb = 0;
+					EQ_Party_Fb = 0;
+					EQ_Pop_Fb = 0;
+					EQ_Rock_Fb = 0;
+					EQ_Soft_Fb = 0;
+				}
+				if(rStat$ = "Club"){
+					EQ_Flat_Fb = 0;
+					EQ_Classical_Fb = 0;
+					EQ_Club_Fb = 1;
+					EQ_Live_Fb = 0;
+					EQ_Party_Fb = 0;
+					EQ_Pop_Fb = 0;
+					EQ_Rock_Fb = 0;
+					EQ_Soft_Fb = 0;
+				}
+				if(rStat$ = "Live"){
+					EQ_Flat_Fb = 0;
+					EQ_Classical_Fb = 0;
+					EQ_Club_Fb = 0;
+					EQ_Live_Fb = 1;
+					EQ_Party_Fb = 0;
+					EQ_Pop_Fb = 0;
+					EQ_Rock_Fb = 0;
+					EQ_Soft_Fb = 0;
+				}
+				if(rStat$ = "Party"){
+					EQ_Flat_Fb = 0;
+					EQ_Classical_Fb = 0;
+					EQ_Club_Fb = 0;
+					EQ_Live_Fb = 0;
+					EQ_Party_Fb = 1;
+					EQ_Pop_Fb = 0;
+					EQ_Rock_Fb = 0;
+					EQ_Soft_Fb = 0;
+				}
+				if(rStat$ = "Pop"){
+					EQ_Flat_Fb = 0;
+					EQ_Classical_Fb = 0;
+					EQ_Club_Fb = 0;
+					EQ_Live_Fb = 0;
+					EQ_Party_Fb = 0;
+					EQ_Pop_Fb = 1;
+					EQ_Rock_Fb = 0;
+					EQ_Soft_Fb = 0;
+				}
+				if(rStat$ = "Rock"){
+					EQ_Flat_Fb = 0;
+					EQ_Classical_Fb = 0;
+					EQ_Club_Fb = 0;
+					EQ_Live_Fb = 0;
+					EQ_Party_Fb = 0;
+					EQ_Pop_Fb = 0;
+					EQ_Rock_Fb = 1;
+					EQ_Soft_Fb = 0;
+				}
+				if(rStat$ = "Soft"){
+					EQ_Flat_Fb = 0;
+					EQ_Classical_Fb = 0;
+					EQ_Club_Fb = 0;
+					EQ_Live_Fb = 0;
+					EQ_Party_Fb = 0;
+					EQ_Pop_Fb = 0;
+					EQ_Rock_Fb = 0;
+					EQ_Soft_Fb = 1;
+				}
+                Trace("Get EQ status");
+			}
+			Case(6):{//PlayMode Status
+
+				iCMD[1] = find("\x22", RX$, find("\x22playMode\x22:", RX$) + 10);
+				iCMD[2] = find("\x22", RX$, iCMD[1] + 1);
+				rStat$ = mid(RX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+				
+				if(rStat$ = "normal"){
+					PlayMode_normal_Fb = 1;
+					PlayMode_circle_Fb = 0;
+					PlayMode_shuffle_Fb = 0;
+					PlayMode_single_Fb = 0;
+				}
+				if(rStat$ = "circle"){
+					PlayMode_normal_Fb = 0;
+					PlayMode_circle_Fb = 1;
+					PlayMode_shuffle_Fb = 0;
+					PlayMode_single_Fb = 0;
+				}
+				if(rStat$ = "shuffle"){
+					PlayMode_normal_Fb = 0;
+					PlayMode_circle_Fb = 0;
+					PlayMode_shuffle_Fb = 1;
+					PlayMode_single_Fb = 0;
+				}
+				if(rStat$ = "single"){
+					PlayMode_normal_Fb = 0;
+					PlayMode_circle_Fb = 0;
+					PlayMode_shuffle_Fb = 0;
+					PlayMode_single_Fb = 1;
+				}
+                Trace("Get PlayMode status");
+			}
+		}
+		if(rCMD$ = "SwitchToAux"){
+		
+			Source_cloudMusic_Fb = 0;
+		    Source_cloudRadio_Fb = 0;
+			Source_cloudStory_Fb = 0; 
+			Source_cloudNews_Fb = 0; 
+			Source_localMusic_Fb = 0; 
+			Source_FM_Fb = 0; 
+			Source_AUX_Fb = 1;
+		}
+		if(rCMD$ = "SwitchToFm"){
+		
+			Source_cloudMusic_Fb = 0;
+		    Source_cloudRadio_Fb = 0;
+			Source_cloudStory_Fb = 0; 
+			Source_cloudNews_Fb = 0; 
+			Source_localMusic_Fb = 0; 
+			Source_FM_Fb = 1; 
+			Source_AUX_Fb = 0;
+		}
+		if(rCMD$ = "PlayLocalMusic"){
+		
+			Source_cloudMusic_Fb = 0;
+		    Source_cloudRadio_Fb = 0;
+			Source_cloudStory_Fb = 0; 
+			Source_cloudNews_Fb = 0; 
+			Source_localMusic_Fb = 1; 
+			Source_FM_Fb = 0; 
+			Source_AUX_Fb = 0;
+		}
+		if(rCMD$ = "PlayCloudNews"){
+		
+			Source_cloudMusic_Fb = 0;
+		    Source_cloudRadio_Fb = 0;
+			Source_cloudStory_Fb = 0; 
+			Source_cloudNews_Fb = 1; 
+			Source_localMusic_Fb = 0; 
+			Source_FM_Fb = 0; 
+			Source_AUX_Fb = 0;
+		}
+		if(rCMD$ = "PlayCloudStory"){
+		
+			Source_cloudMusic_Fb = 0;
+		    Source_cloudRadio_Fb = 0;
+			Source_cloudStory_Fb = 1; 
+			Source_cloudNews_Fb = 0; 
+			Source_localMusic_Fb = 0; 
+			Source_FM_Fb = 0; 
+			Source_AUX_Fb = 0;
+		}
+		if(rCMD$ = "PlayCloudRadio"){
+		
+			Source_cloudMusic_Fb = 0;
+		    Source_cloudRadio_Fb = 1;
+			Source_cloudStory_Fb = 0; 
+			Source_cloudNews_Fb = 0; 
+			Source_localMusic_Fb = 0; 
+			Source_FM_Fb = 0; 
+			Source_AUX_Fb = 0;
+		}
+		if(rCMD$ = "PlayCloudMusic"){
+		
+			Source_cloudMusic_Fb = 1;
+		    Source_cloudRadio_Fb = 0;
+			Source_cloudStory_Fb = 0; 
+			Source_cloudNews_Fb = 0; 
+			Source_localMusic_Fb = 0; 
+			Source_FM_Fb = 0; 
+			Source_AUX_Fb = 0;
+		}
+	}
+}
+
+/*
+EVENT
+{
+    // TODO:  Add code here
+}
+*/
+
+/*
+SOCKETCONNECT
+{
+    // TODO:  Add code here
+}
+*/
+
+/*
+SOCKETDISCONNECT
+{
+    // TODO:  Add code here
+}
+*/
+
+/*
+SOCKETRECEIVE
+{
+    // TODO:  Add code here
+}
+*/
+
+/*
+SOCKETSTATUS
+{
+    // TODO:  Add code here
+}
+*/
+
+/*******************************************************************************************
+  Main()
+  Uncomment and place one-time startup code here
+  (This code will get called when the system starts up)
+*******************************************************************************************/
+/*
+Function Main()
+{
+    // TODO:  Add code here
+    // Initialize declared global and local variables/arrays as needed.
+
+    // WaitForInitializationComplete();
+    // If you are reading any Input or Output variables, uncomment
+    //   the WaitForInitializationComplete statement above and read
+    //   them afterwards.  Input/Output variables will not have
+    //   their correct values set until after the logic processor
+    //   runs and propagates the values to them.
+}
+*/
+
