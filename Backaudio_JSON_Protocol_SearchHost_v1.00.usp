@@ -1,0 +1,456 @@
+/*******************************************************************************************
+  SIMPL+ Module Information
+  (Fill in comments below)
+*******************************************************************************************/
+/*
+Dealer Name:apcube.com
+System Name:
+System Number:
+Programmer:iConsole
+Comments:
+*/
+
+/*******************************************************************************************
+  Compiler Directives
+  (Uncomment and declare compiler directives as needed)
+*******************************************************************************************/
+// #ENABLE_DYNAMIC
+ #SYMBOL_NAME "Backaudio_JSON_Protocol_SearchHost_v1.00"
+// #HINT ""
+ #DEFINE_CONSTANT SendID$ "BACSLH10618705008999"
+ #DEFINE_CONSTANT udpRecvID$ "BA760400FFFFFFFFFFFF"
+ #DEFINE_CONSTANT udpIP$ "255.255.255.255"
+ #DEFINE_CONSTANT udpPort 18090
+ #DEFINE_CONSTANT tcpPort 20090
+ #DEFINE_CONSTANT arraySize 12
+ #CATEGORY "4" // Device Interface
+ #PRINT_TO_TRACE
+// #DIGITAL_EXPAND 
+// #ANALOG_SERIAL_EXPAND 
+// #OUTPUT_SHIFT 
+// #HELP_PDF_FILE ""
+#DEFAULT_VOLATILE
+#ENABLE_STACK_CHECKING
+#ENABLE_TRACE
+// #ENCODING_ASCII
+// #ENCODING_UTF16
+// #ENCODING_INHERIT_FROM_PARENT
+// #ENCODING_INHERIT_FROM_PROGRAM
+#HELP_BEGIN
+   Backaudio JSON Protocol Search Host Interface.
+#HELP_END
+
+/*******************************************************************************************
+  Include Libraries
+  (Uncomment and include additional libraries as needed)
+*******************************************************************************************/
+// #CRESTRON_LIBRARY ""
+// #USER_LIBRARY ""
+
+/*******************************************************************************************
+  DIGITAL, ANALOG and SERIAL INPUTS and OUTPUTS
+  (Uncomment and declare inputs and outputs as needed)
+*******************************************************************************************/
+ DIGITAL_INPUT Search;
+// ANALOG_INPUT 
+ STRING_INPUT TX$[2048];
+// BUFFER_INPUT 
+
+// DIGITAL_OUTPUT Search_OK;
+// ANALOG_OUTPUT 
+ STRING_OUTPUT _SKIP_, RX$, _SKIP_, deviceID$, deviceIp$, deviceName$, deviceType$, deviceVersion$, _SKIP_, roomID$[arraySize];
+
+/*******************************************************************************************
+  SOCKETS
+  (Uncomment and define socket definitions as needed)
+*******************************************************************************************/
+ TCP_CLIENT iTCP[2048];
+// TCP_SERVER
+ UDP_SOCKET iUDP[1024];
+
+/*******************************************************************************************
+  Parameters
+  (Uncomment and declare parameters as needed)
+*******************************************************************************************/
+// INTEGER_PARAMETER
+// SIGNED_INTEGER_PARAMETER
+// LONG_INTEGER_PARAMETER
+// SIGNED_LONG_INTEGER_PARAMETER
+// STRING_PARAMETER
+
+/*******************************************************************************************
+  Parameter Properties
+  (Uncomment and declare parameter properties as needed)
+*******************************************************************************************/
+/*
+#BEGIN_PARAMETER_PROPERTIES parameter_variable, parameter_variable, ...
+   // propValidUnits = // unitString or unitDecimal|unitHex|unitPercent|unitCharacter|unitTime|unitTicks;
+   // propDefaultUnit = // unitString, unitDecimal, unitHex, unitPercent, unitCharacter, unitTime or unitTicks;
+   // propBounds = lower_bound , upper_bound;
+   // propDefaultValue = ;  // or, propDefaultValue = "";
+   // propList = // { "value" , "label" } , { "value" , "label" } , ... ;
+   // propShortDescription = "status_bar_hint_text";
+   // #BEGIN_PROP_FULL_DESCRIPTION  line_1...  line_2...  line_n  #END_PROP_FULL_DESCRIPTION
+   // #BEGIN_PROP_NOTES line_1...  line_2...  line_n  #END_PROP_NOTES
+#END_PARAMETER_PROPERTIES
+*/
+
+/*******************************************************************************************
+  Structure Definitions
+  (Uncomment and define structure definitions as needed)
+  Note:  Be sure to initialize all declared STRING variables as needed
+         For example, in Function Main: struct.myString = "";
+*******************************************************************************************/
+/*
+STRUCTURE MyStruct1
+{
+};
+
+MyStruct1 struct;
+*/
+
+/*******************************************************************************************
+  Global Variables
+  (Uncomment and declare global variables as needed)
+  Note:  Be sure to initialize all declared STRING variables as needed
+         For example, in Function Main: myString = "";
+*******************************************************************************************/
+ INTEGER iSearch;
+// LONG_INTEGER
+ SIGNED_INTEGER tcpStatus;
+// SIGNED_LONG_INTEGER
+ STRING arg$[1024], CMD$[50], tcpIP$[50], HostID$[50];
+
+/*******************************************************************************************
+  Functions
+  (Add any additional functions here)
+  Note:  Functions must be physically placed before the location in
+         the code that calls them.
+*******************************************************************************************/
+String_Function MKString(String recvID$)
+{
+	String JSON$[1024], sTX$[1024];
+	INTEGER iLen;
+
+	MakeString(JSON$, 
+		"{\x22arg\x22:{%s},\x22cmd\x22:\x22%s\x22,\x22direction\x22:\x22request\x22,\x22recvId\x22:\x22%s\x22,\x22sendId\x22:\x22%s\x22}",
+		arg$, CMD$, recvID$, SendID$);
+
+	iLen = len(JSON$);
+
+	if( iLen > 255){
+		MakeString(sTX$, "%s%s\x00\x00%s", chr(high(iLen)), chr(low(iLen)), JSON$);
+	}ELSE{
+		MakeString(sTX$, "%s\x00\x00\x00%s", chr(iLen), JSON$);
+	}
+	Return (sTX$);
+}
+FUNCTION udpProcess(String uRX$)
+{
+	INTEGER iCMD[2];
+	SIGNED_INTEGER iStatus;
+	String tcpSend$[1024];
+
+	if(find("arg", uRX$) > 1 && find("response", uRX$) > 0 && find("cmd", uRX$) > 0 && find("SearchHost", uRX$) > 0){
+
+		iCMD[1] = find("\x22", uRX$, find("\x22deviceId\x22:", uRX$) + len("\x22deviceId\x22:"));
+		iCMD[2] = find("\x22", uRX$, iCMD[1] + 1);
+		hostID$ = mid(uRX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+        deviceID$ = hostID$;
+
+		iCMD[1] = find("\x22", uRX$, find("\x22deviceIp\x22:", uRX$) + len("\x22deviceIp\x22:"));
+		iCMD[2] = find("\x22", uRX$, iCMD[1] + 1);
+		tcpIp$ = mid(uRX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+		deviceIp$ = tcpIP$;
+
+		iCMD[1] = find("\x22", uRX$, find("\x22deviceName\x22:", uRX$) + len("\x22deviceName\x22:"));
+		iCMD[2] = find("\x22", uRX$, iCMD[1] + 1);
+		deviceName$ = mid(uRX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+
+		iCMD[1] = find("\x22", uRX$, find("\x22deviceType\x22:", uRX$) + len("\x22deviceType\x22:"));
+		iCMD[2] = find("\x22", uRX$, iCMD[1] + 1);
+		deviceType$ = mid(uRX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+
+		iCMD[1] = find("\x22", uRX$, find("\x22deviceVersion\x22:", uRX$) + len("\x22deviceVersion\x22:"));
+		iCMD[2] = find("\x22", uRX$, iCMD[1] + 1);
+		deviceVersion$ = mid(uRX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+
+		Trace("Search Host Complite!");
+
+		tcpStatus = SocketConnectClient(iTCP, tcpIP$, tcpPort, 1);
+		if (tcpStatus < 0){
+			Print("Error connecting socket to address %s on port  %d", tcpIP$, tcpPort);
+		}
+
+		delay(100);
+
+		if (tcpStatus = 0){
+	
+			makestring(arg$, "\x22hostId\x22:\x22%s\x22", hostID$);
+			CMD$ = "GetHostRoomList";
+			tcpSend$ = MKString(hostID$);
+
+			iStatus = SocketSend(iTCP, tcpSend$);
+
+			if (iStatus < 0){
+				Print("Error Sending to Device: %d\n", iStatus);
+			}else{
+				Print("Send Complite. TX$:%s", tcpSend$);
+			}
+		}
+	}
+}
+FUNCTION tcpProcess(String tRX$)
+{
+	INTEGER iCMD[2], i;
+
+	if(find("arg", tRX$) > 1 && find("response", tRX$) > 0 && find("cmd", tRX$) > 0 && find("GetHostRoomList", tRX$) > 0 && find(hostID$, tRX$) > 0){
+        
+		setArray(iCMD, 0);
+
+		for(i = 1 to arraySize){
+			iCMD[1] = find("\x22", tRX$, find("\x22roomId\x22:", tRX$, iCMD[1] + 1) + len("\x22roomId\x22:"));
+			iCMD[2] = find("\x22", tRX$, iCMD[1] + 1);
+			roomID$[i] = mid(tRX$, iCMD[1] + 1, iCMD[2] - iCMD[1] - 1);
+		}
+
+		Trace("Search Host Room List Complite!");
+	}
+	iSearch = 0;
+}
+/*
+Integer_Function MyIntFunction1()
+{
+    // TODO:  Add local variable declarations here
+
+    // TODO:  Add code here
+
+    Return (0);
+}
+*/
+
+/*
+String_Function MyStrFunction1()
+{
+    // TODO:  Add local variable declarations here
+
+    // TODO:  Add code here
+
+    Return ("");
+}
+*/
+
+/*******************************************************************************************
+  Event Handlers
+  (Uncomment and declare additional event handlers as needed)
+*******************************************************************************************/
+PUSH Search
+{
+    SIGNED_INTEGER status, iStatus;
+	String udpSend$[1024];
+
+	iSearch = 1;
+    
+	
+	status = SocketdisConnectClient(iTCP);
+    status = SocketUDP_Enable(iUDP, udpIP$, udpPort);
+
+    if (status < 0){
+        Print("Error listening to %s on port  %d", udpIP$, udpPort);
+	}else{
+		arg$ = "\x22version\x22:\x221.0.3\x22";
+		CMD$ = "SearchHost";
+		udpSend$ = MKString(udpRecvID$);
+
+		iStatus = SocketSend(iUDP, udpSend$);
+
+		if (iStatus < 0){
+			Print("Error Sending to MyUDP: %d\n", iStatus);
+		}
+	}
+
+}
+SOCKETRECEIVE iUDP
+{
+
+    SIGNED_INTEGER IsBroadcast;
+    SIGNED_INTEGER IsMulticast;
+    SIGNED_INTEGER LocalStatus;
+	SIGNED_INTEGER status;
+    STRING SenderIPAddress[32], udpRX$[1024];
+
+    
+
+    IsBroadcast = SocketIsBroadcast(iUDP);
+    if (IsBroadcast < 0)
+
+        Print("IsBroadcast returned error: %d\n", IsBroadcast);
+
+    IsMulticast = SocketIsMulticast(iUDP);
+    if (IsMulticast < 0)
+
+        Print("IsMulticast returned error: %d\n", IsMulticast);
+
+    LocalStatus = SocketGetSenderIPAddress(iUDP, SenderIPAddress);
+    if (LocalStatus < 0)
+
+        Print("SocketGetSenderIPAddress returned error: %d\n", LocalStatus);
+
+    if (IsBroadcast)
+        Print("Broadcast data received from %s\n", SenderIPAddress);
+
+    else if (IsMulticast)
+        Print("Multicast data received from %s\n", SenderIPAddress);
+
+    else
+
+        Print("Unicast data received from %s\n", SenderIPAddress);
+
+    if (Len(iUDP.SocketRxBuf) < 256)
+        Print("Rx: %s", iUDP.SocketRxBuf);
+
+    // for now, send to serial output and clear buffer
+
+    udpRX$ = iUDP.SocketRxBuf;
+    udpProcess(udpRX$);
+    ClearBuffer(iUDP.SocketRxBuf);
+
+    status = SocketUDP_Disable(iUDP);
+    if (status < 0){
+        Print("Error listening on port  %d", udpPort);
+	}
+
+}
+/*
+RELEASE input
+{
+    // TODO:  Add code here
+}
+*/
+
+CHANGE TX$
+{
+	SIGNED_INTEGER iStatus;
+
+	if(tcpStatus < 0){
+		tcpStatus = SocketConnectClient(iTCP, tcpIP$, tcpPort, 1);
+		if (tcpStatus < 0){
+			Print("Error connecting socket to address %s on port  %d", tcpIP$, tcpPort);
+		}
+		delay(100);
+	}
+	
+	iStatus = SocketSend(iTCP, TX$);
+
+	if (iStatus < 0){
+		Print("Error Sending to Device: %d\n", iStatus);
+	}else{
+		Print("Send Complite. TX$:%s", TX$);
+	}
+}
+
+/*
+EVENT
+{
+    // TODO:  Add code here
+}
+*/
+
+SOCKETCONNECT iTCP
+{
+    SIGNED_LONG_INTEGER PortNumber;
+
+    SIGNED_INTEGER LocalStatus;
+
+    STRING RemoteIPAddress[20];
+
+    STRING RequestedAddress[256];
+
+    
+
+   // doClientConnected = 1;
+
+    LocalStatus = SocketGetAddressAsRequested(iTCP, RequestedAddress);
+
+    if (LocalStatus < 0)
+
+        Print("Error getting remote ip address. %d\n", LocalStatus);
+
+    Print("OnConnect: Connect call to %s successful\n", RequestedAddress);
+
+    
+
+    PortNumber = SocketGetPortNumber(iTCP);
+
+    if (PortNumber < 0)
+
+        Print("Error getting client port number. %ld\n", PortNumber);
+
+        
+
+    LocalStatus = SocketGetRemoteIPAddress(iTCP, RemoteIPAddress);
+
+    if (LocalStatus < 0)
+
+        Print("Error getting remote ip address. %d\n", LocalStatus);
+
+    Print("OnConnect: Connected to port %ld on address %s\n",
+
+                PortNumber, RemoteIPAddress);
+
+//    SocketSend(MyClient, "This is sent when the socket starts.");
+}
+
+/*
+SOCKETDISCONNECT
+{
+    // TODO:  Add code here
+}
+*/
+SOCKETRECEIVE iTCP
+{
+	String tcpRX$[2048];
+
+    if (Len(iTCP.SocketRxBuf) > 4)
+
+        Print("Rx: %s", iTCP.SocketRxBuf);
+
+    
+
+    // for now, send to serial output and clear buffer
+
+    tcpRX$ = iTCP.SocketRxBuf;
+
+    ClearBuffer(iTCP.SocketRxBuf);
+
+	if(iSearch){
+		tcpProcess(tcpRX$);
+	}else{
+		makeString(RX$, "%s", tcpRX$);
+	}
+}
+/*
+SOCKETRECEIVE
+{
+    // TODO:  Add code here
+}
+*/
+
+/*
+SOCKETSTATUS
+{
+    // TODO:  Add code here
+}
+*/
+
+/*******************************************************************************************
+  Main()
+  Uncomment and place one-time startup code here
+  (This code will get called when the system starts up)
+*******************************************************************************************/
+/*
+Function Main()
+{
+}
+*/
+
